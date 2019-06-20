@@ -9,35 +9,63 @@
 # Copyright (c) 2016, Andrew Backes <backes.andrew@gmail.com>
 
 import json
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
-from urllib.parse import urlencode
-
+import re
+import requests
+from urllib import quote_plus
 
 class RestClient(object):
-
     @staticmethod
     def get(url, params={}):
-        """Invoke an HTTP GET request on a url
-
+        """
+        Invoke an HTTP GET request on a url
+        
         Args:
             url (string): URL endpoint to request
             params (dict): Dictionary of url parameters
+
         Returns:
             dict: JSON response as a dictionary
+
         """
-        request_url = url
+        req_url = url
+        
+        if (len(params) > 0):
+            req_url = u"{}?{}".format(url, urlencode_utf8(params))
 
-        if len(params):
-            request_url = "{}?{}".format(url, urlencode(params))
+        print(req_url)
+	result = requests.get(req_url)
 
-        try:
-            req = Request(request_url, headers={'User-Agent': 'Mozilla/5.0'})
-            response = json.loads(urlopen(req).read().decode("utf-8"))
+        if result.status_code == 200:
+            return json.loads(result.text)
+        else:
+            raise MtgException("Failed to fetch information")
 
-            return response
-        except HTTPError as err:
-            raise MtgException(err.read())
+
+def urlencode_utf8(params):
+    """
+    Encode a dictionary of parameters into an '&' seperated list of url safe
+    pairs seperated by '='
+
+    Args:
+        params (dict): Dictionary of url parameters
+
+    Returns:
+        utf8 string: Encoded parameter string
+    """
+    param_strings = []
+    for key, value in params.items():
+        if not isinstance(key, unicode):
+            key_str = str(key)
+        else:
+            key_str = quote_plus(key.encode('utf8'))
+        if not isinstance(value, unicode):
+            val_str = str(value)
+        else:
+            val_str = quote_plus(value.encode('utf8'))
+
+        param_strings.append(u"{}={}".format(key_str, val_str))
+
+    return u'&'.join(param_strings)
 
 
 class MtgException(Exception):
